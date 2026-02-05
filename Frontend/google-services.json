@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "773116592614",
-    "project_id": "bondmate-ede19",
-    "storage_bucket": "bondmate-ede19.firebasestorage.app"
+    "project_number": "296119093912",
+    "project_id": "shalash-1a11a",
+    "storage_bucket": "shalash-1a11a.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:773116592614:android:712f8a7cf16ad766b59627",
+        "mobilesdk_app_id": "1:296119093912:android:3c2fcd9f226e7bb767deed",
         "android_client_info": {
-          "package_name": "com.bondmate"
+          "package_name": "com.demoapp"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAGva1_m0D6mNVZ7d5AquE7YPReSLsySPs"
+          "current_key": "AIzaSyA199hi_jtsda0MTVCL3aLxIxaovv_dzvo"
         }
       ],
       "services": {

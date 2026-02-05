@@ -13,6 +13,14 @@ export async function registerForPushNotificationsAsync() {
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#FF231F7C',
         });
+
+        await Notifications.setNotificationChannelAsync('chat-messages', {
+            name: 'Chat Messages',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#075E54',
+            showBadge: true,
+        });
     }
 
     if (Device.isDevice) {
@@ -31,11 +39,11 @@ export async function registerForPushNotificationsAsync() {
         // https://docs.expo.dev/push-notifications/push-notifications-setup/#configure-projectid
         // This will error if not configured in app.json properly for EAS
         try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-            console.log("Expo Push Token:", token);
+            // Get the native device token (FCM token for Android)
+            token = (await Notifications.getDevicePushTokenAsync()).data;
+            console.log("Device Push Token (FCM):", token);
         } catch (e) {
-            console.warn("Error getting push token. Make sure projectId is set in app.json for EAS.");
+            console.warn("Error getting device push token:", e);
         }
     } else {
         // alert('Must use physical device for Push Notifications');

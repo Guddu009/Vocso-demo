@@ -24,12 +24,13 @@ try {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
-    console.log("Firebase Admin initialized");
+    console.log("Firebase Admin initialized for project:", serviceAccount.project_id);
 } catch (error) {
     console.warn("Firebase Admin could not be initialized. Push notifications will be mocked. Please provide firebase-admin.json.");
 }
 
 let messages = [];
+let USER_TOKENS = {}; // Store { username: fcmToken } in memory
 
 // Hardcoded users for demo
 const HARDCODED_USERS = {
@@ -55,6 +56,16 @@ app.post('/api/login', (req, res) => {
     }
 });
 
+app.post('/api/save-token', (req, res) => {
+    const { username, fcmToken } = req.body;
+    if (!username || !fcmToken) {
+        return res.status(400).json({ error: "Username and fcmToken are required" });
+    }
+    USER_TOKENS[username] = fcmToken;
+    console.log(`Token saved for ${username}: ${fcmToken}`);
+    res.status(200).json({ message: "Token saved successfully" });
+});
+
 // Socket.io logic
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -72,15 +83,45 @@ io.on('connection', (socket) => {
         io.emit('receive_message', newMessage);
 
         // Send Push Notification via FCM
-        if (data.fcmToken && admin.apps.length > 0) {
+        // We now get the recipient's token from our storage
+        // For simplicity in this demo, we can notify everyone except the sender
+        // or a specific recipient if 'recipient' is provided in data.
+
+        const recipient = data.recipient; // UI should pass this
+        const fcmToken = recipient ? USER_TOKENS[recipient] : data.fcmToken;
+
+        console.log(`--- New Message from ${data.sender} ---`);
+        console.log(`Text: ${data.text}`);
+        console.log(`Recipient: ${recipient || 'Not specified'}`);
+        console.log(`Recipient Token Found: ${fcmToken ? 'Yes' : 'No'}`);
+
+        if (fcmToken && admin.apps.length > 0) {
             const payload = {
                 notification: {
-                    title: `New message from ${data.sender}`,
+                    title: data.sender, // WhatsApp style: Sender name as title
                     body: data.text,
                 },
-                token: data.fcmToken,
+                token: fcmToken,
                 data: {
-                    screen: 'Chat'
+                    screen: 'Chat',
+                    sender: data.sender,
+                    message: data.text,
+                },
+                android: {
+                    priority: 'high',
+                    notification: {
+                        channelId: 'chat-messages',
+                        tag: 'chat', // Groups notifications from the same sender
+                        color: '#075E54', // WhatsApp brand color
+                    }
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            sound: 'default',
+                            'content-available': 1,
+                        }
+                    }
                 }
             };
 

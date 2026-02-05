@@ -3,9 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingVi
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import { useUserStore } from '../src/store/userStore';
+import { registerForPushNotificationsAsync } from '../src/utils/notificationHelper';
 
 // Replace with your server's IP address (not localhost for Android emulator/device)
-const BACKEND_URL = 'http://192.168.1.16:3000';
+const BACKEND_URL = 'http://192.168.1.63:3000';
 
 
 export default function LoginScreen() {
@@ -29,7 +30,27 @@ export default function LoginScreen() {
             });
 
             if (response.status === 200) {
-                setUsername(name.trim());
+                const username = name.trim();
+                setUsername(username);
+
+                // Get FCM Token and save to backend
+                try {
+                    const token = await registerForPushNotificationsAsync();
+                    if (token) {
+                        // Store in local state
+                        useUserStore.getState().setFcmToken(token);
+
+                        // Save to backend
+                        await axios.post(`${BACKEND_URL}/api/save-token`, {
+                            username: username,
+                            fcmToken: token
+                        });
+                        console.log("FCM Token registered and saved for:", username);
+                    }
+                } catch (tokenError) {
+                    console.warn("FCM Token registration failed:", tokenError);
+                }
+
                 router.replace('/chat');
             }
         } catch (error: any) {

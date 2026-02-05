@@ -22,7 +22,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Replace with your server's IP address (not localhost for Android emulator/device)
-const BACKEND_URL = 'http://192.168.1.16:3000';
+const BACKEND_URL = 'http://192.168.1.63:3000';
 
 interface Message {
     id: string;
@@ -66,9 +66,14 @@ export default function ChatRoomScreen() {
 
     const sendMessage = () => {
         if (inputText.trim() && username && socketRef.current) {
+            // In a real app, you'd select a recipient.
+            // For this demo, let's target the other hardcoded user.
+            const recipient = username === 'user1' ? 'user2' : 'user1';
+
             socketRef.current.emit('send_message', {
                 text: inputText.trim(),
                 sender: username,
+                recipient: recipient, // Tell backend who should get the push notification
                 fcmToken: fcmToken
             });
             setInputText('');

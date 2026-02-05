@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import axios from 'axios';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,17 +18,18 @@ import '../global.css';
 // Configure notification behavior
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
+        shouldShowAlert: false,
+        shouldPlaySound: false,
         shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
+        shouldShowBanner: false,
+        shouldShowList: false,
     }),
 });
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+const BACKEND_URL = 'http://192.168.1.63:3000';
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
@@ -44,28 +46,69 @@ export default function RootLayout() {
         'Outfit-Bold': Outfit_700Bold,
     });
 
-    useEffect(() => {
-        if (loaded) {
-            SplashScreen.hideAsync();
-        }
-    }, [loaded]);
+    const [hasHydrated, setHasHydrated] = useState(false);
 
     useEffect(() => {
-        registerForPushNotificationsAsync().then(token => {
+        // Wait for store to hydrate from AsyncStorage
+        const unsubHydrate = useUserStore.persist.onFinishHydration(() => {
+            setHasHydrated(true);
+        });
+
+        // If it's already hydrated
+        if (useUserStore.persist.hasHydrated()) {
+            setHasHydrated(true);
+        }
+
+        return () => unsubHydrate();
+    }, []);
+
+    useEffect(() => {
+        if (loaded && hasHydrated) {
+            SplashScreen.hideAsync();
+        }
+    }, [loaded, hasHydrated]);
+
+    useEffect(() => {
+        registerForPushNotificationsAsync().then(async (token) => {
             if (token) {
                 setFcmToken(token);
                 setExpoPushToken(token);
+
+                // If user is already logged in, register token with backend
+                // (Important because backend store is in-memory and resets on restart)
+                if (username) {
+                    try {
+                        await axios.post(`${BACKEND_URL}/api/save-token`, {
+                            username: username,
+                            fcmToken: token
+                        });
+                        console.log("FCM Token re-registered on startup for:", username);
+                    } catch (e) {
+                        console.warn("Failed to re-register token on startup:", e);
+                    }
+                }
             }
         });
 
+        // Background handler (when app is not running) logic is handled by expo-notifications automatically
+        // but we can listen for responses (taps)
+
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             console.log("Notification Received:", notification);
+            // Optional: If we are already in the chat room with THIS user, we might want to suppress the banner
+            // or play a different sound. For now, we let it show if the user isn't on the chat screen.
         });
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+            const data = response.notification.request.content.data;
             console.log("Notification Tapped:", response);
+
             // Redirect to chatroom
-            router.push('/chat');
+            if (data.screen === 'Chat') {
+                router.push('/chat');
+            } else {
+                router.push('/chat');
+            }
         });
 
         return () => {
@@ -74,7 +117,7 @@ export default function RootLayout() {
         };
     }, []);
 
-    if (!loaded) {
+    if (!loaded || !hasHydrated) {
         return null;
     }
 
